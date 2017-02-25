@@ -1,0 +1,233 @@
+ /**
+     *   redis 迁移脚本 --- 可反复执行
+     *
+     *   使用备注
+     *   
+     *   1、使用前针对迁移数据做调研，请确保开启线上双写
+     *
+     *   2、迁移甲方的数据 在乙方没有相同的key（务必确保,如果不确定可以将下面程序停掉写，检测2边值是否都存在）
+     *
+     *   3、迁移甲方460M，大概30万左右key，实际迁移qps 不到300，内存增长不大，迁移乙方qps 不到1000
+     *
+     *   4、使用中注意观察2边的qps、连接数、使用内存的情况，以及脚本机器的内存使用率情况
+     *
+     *   5、迁移完毕，注意检查key数量，以及抽样检测2边数据是否一致，最好开启双读，加日志检测 
+     *
+     */
+    public function migrateRedisData() {
+
+        $start_time = microtime(true);
+
+        //迁移对象 确保主库
+        $from_redis = ‘XXX’;
+
+        //迁移目的地 确保主库
+        $to_redis = ‘XXX’;
+
+        // 参数配置
+        $from_redis->setOption(Redis::OPT_SCAN, Redis::SCAN_RETRY);
+
+        $loop = 1;// 循环计数
+        $it   = null;//游标默认值，不能是0
+        $arg  = array(&$it, $match = '*', $count = 1000);
+        while ($keys = call_user_func_array(array($from_redis, 'scan'), $arg)) {
+            // 记录循环次数
+            $loop++;
+            $scan_time = microtime(true);
+            foreach ($keys as $key) {
+                $s_time = microtime(true);
+                $type   = $from_redis->type($key);
+                switch ($type) {
+
+                    // string
+                    case Redis::REDIS_STRING:
+                        $val = $from_redis->get($key);
+
+                        $expire = $from_redis->ttl($key);
+                        if ($expire == -2) {
+                            // 不存在
+                        } elseif ($expire == -1) {
+                            // 存在但是未设置过期时间
+                             $to_redis->set($key, $val);
+                        } else {
+                             $to_redis->set($key, $val, $expire);
+                        }
+
+                        $diff_time = microtime(true) - $s_time;
+                        echo "string,{$key},{$expire},1,1,{$diff_time}\n";
+                        break;
+
+                    // set
+                    case Redis::REDIS_SET:
+
+                        $sit       = null;
+                        $arguments = array($key, &$sit, $match = '*', $count = 200);
+                        while ($set_keys = call_user_func_array(array($from_redis, 'sScan'), $arguments)) {
+
+                            $arr_args = $set_keys;
+                            array_unshift($arr_args, $key);
+
+                            call_user_func_array(array($to_redis, 'sAdd'), $arr_args);
+                            echo "set-{$sit}-{$key}-" . count($set_keys) . "\n";
+
+                            // 0.01
+                            usleep(10000);
+                        }
+
+                        $expire = $from_redis->ttl($key);
+                        if ($expire == -2) {
+                            // 不存在
+                        } elseif ($expire == -1) {
+                            // 存在但是未设置过期时间
+                        } else {
+                            $to_redis->expire($key, $expire);
+                        }
+
+                        $num   = $from_redis->sCard($key);
+                        $num_r = $to_redis->sCard($key);
+
+                        $diff_time = microtime(true) - $s_time;
+
+                        echo "set,{$key},{$expire},{$num},{$num_r},{$diff_time}\n";
+                        break;
+
+                    // list
+                    // todo 选择将值插入队列左边还是右边，需要根据实际需要做测试
+                    case Redis::REDIS_LIST:
+                        echo "\n该list类型key{$key}暂不迁移\n";
+                        break;
+
+//                        $llen = $from_redis->lLen($key);
+//
+//                        // 删除接受方的key,确保队列的纯洁性
+//                        $to_redis->del($key);
+//
+//                        // 一次取200个元素
+//                        $length = ceil($llen / 200);
+//                        for ($i = 0; $i < $length; $i++) {
+//                            $start = $i * 200;
+//                            $end   = $start + 199;
+//
+//                            $list_keys = $from_redis->lRange($key, $start, $end);
+//
+//                            if ($list_keys) {
+//                                $arr_args = $list_keys;
+//                                array_unshift($arr_args, $key);
+//                                call_user_func_array(Array($to_redis, 'rpush'), $arr_args);
+//
+//                                echo "list-{$key}-," . count($list_keys) . "\n";
+//                            }
+//
+//                            // 0.01
+//                            usleep(10000);
+//                        }
+//
+//                        $expire = $from_redis->ttl($key);
+//                        if ($expire == -2) {
+//                            // 不存在
+//                        } elseif ($expire == -1) {
+//                            // 存在但是未设置过期时间
+//                        } else {
+//                            $to_redis->expire($key, $expire);
+//                        }
+//
+//                        $llen_r = $to_redis->lLen($key);
+//
+//                        $diff_time = microtime(true) - $s_time;
+//
+//                        echo "list,{$key},{$expire},{$llen},{$llen_r},{$diff_time}\n";
+//                        break;
+
+                    // zset
+                    case Redis::REDIS_ZSET:
+
+                        $zit       = null;
+                        $arguments = array($key, &$zit, $match = '*', $count = 200);
+                        while ($zset_keys = call_user_func_array(array($from_redis, 'zScan'), $arguments)) {
+                            $zset_keys_arr = [];
+                            foreach ($zset_keys as $zset_k => $zset_v) {
+                                $zset_keys_arr[] = $zset_v;
+                                $zset_keys_arr[] = $zset_k;
+                            }
+
+                            $arr_args = $zset_keys_arr;
+                            array_unshift($arr_args, $key);
+                            call_user_func_array(array($to_redis, 'zAdd'), $arr_args);
+
+                            echo "zset-{$zit}-{$key}-," . count($zset_keys) . "\n";
+
+                            // 0.01
+                            usleep(10000);
+                        }
+
+                        $expire = $from_redis->ttl($key);
+                        if ($expire == -2) {
+                            // 不存在
+                        } elseif ($expire == -1) {
+                            // 存在但是未设置过期时间
+                        } else {
+                            $to_redis->expire($key, $expire);
+                        }
+
+                        $num   = $from_redis->zCard($key);
+                        $num_r = $to_redis->zCard($key);
+
+                        $diff_time = microtime(true) - $s_time;
+
+                        echo "zset,{$key},{$expire},{$num},{$num_r},{$diff_time}\n";
+                        break;
+
+                    // hash
+                    case Redis::REDIS_HASH:
+
+                        $hit       = null;
+                        $arguments = array($key, &$hit, $match = '*', $count = 200);
+                        //有可能限制数不起效，当数据体量小的时候可能会一次性返回
+                        while ($hset_keys = call_user_func_array(array($from_redis, 'hScan'), $arguments)) {
+                            $to_redis->hMset($key, $hset_keys);
+
+                            echo "hash-{$hit}-{$key}-," . count($hset_keys) . "\n";
+
+                            // 0.01
+                            usleep(10000);
+                        }
+
+                        $expire = $from_redis->ttl($key);
+                        if ($expire == -2) {
+                            // 不存在
+                        } elseif ($expire == -1) {
+                            // 存在但是未设置过期时间
+                        } else {
+                            $to_redis->expire($key, $expire);
+                        }
+
+                        $num   = $from_redis->hlen($key);
+                        $num_r = $to_redis->hlen($key);
+
+                        $diff_time = microtime(true) - $s_time;
+
+                        echo "hash,{$key},{$expire},{$num},{$num_r},{$diff_time}\n";
+
+                        break;
+
+                    // other
+                    case Redis::REDIS_NOT_FOUND:
+
+                    default:
+                        echo "\n该类型key{$key}暂不迁移\n";
+                        break;
+                }
+            }
+            // 停止0.01
+            usleep(10000);
+
+            $find_keys = count($keys);
+
+            $diff_time = microtime(true) - $scan_time;
+
+            echo "{$it} single scan cycle {$loop} and keys {$find_keys} run {$diff_time}s\n";
+        }
+
+        $diff_time = microtime(true) - $start_time;
+        echo "the entire command execution takes time {$diff_time}s ,loop {$loop} times \n";
+    }
