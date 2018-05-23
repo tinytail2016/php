@@ -1,13 +1,14 @@
 linux 下free的使用总结
 
-linux看内存是否够用的标准：只要不用swap的交换空间,就不用担心自己的内存太少.如果常常swap用很多,可能你就要考虑加物理内存
-
 free命令：  free -m 
 
-             total       used       free     shared    buffers     cached
+命令          total       used       free     shared    buffers     cached
 Mem:         32059      31304        755          0       1689      15129
 -/+ buffers/cache:      14485      17573
 Swap:        15999       1589      14410
+
+
+linux看内存是否够用的标准：只要不用swap的交换空间,就不用担心自己的内存太少.如果常常swap用很多,可能你就要考虑加物理内存
 
 名词释义
 
