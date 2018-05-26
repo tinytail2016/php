@@ -1,1 +1,51 @@
 
+linux strace命令
+
+内核态的函数调用跟踪用「strace」，用户态的函数调用跟踪用「ltrace」
+
+strace 命令是一种强大的工具, 能够显示任何由用户空间程式发出的系统调用. strace 显示这些调用的参数并返回符号形式的值. 
+strace 从内核接收信息, 而且无需以任何特别的方式来构建内核. strace 的每一行输出包括系统调用名称, 然后是参数和返回值.
+
+下面记录几个常用option:
+
+-f -F选项告诉strace同时跟踪fork和vfork出来的进程
+
+-o xxx.txt 输出到某个文档. 
+
+-e execve 只记录 execve 这类系统调用.
+
+strace-p <PID>
+  strace 跟踪某个进程的话，那么等待你的往往是满屏翻滚的字符，想从这里看出问题的症结并不是一件容易的事情
+  
+strace-cp <PID>
+  通过「c」选项用来汇总各个操作的总耗时
+  
+strace-T -e clone -p <PID>
+  通过「T」选项可以获取操作实际消耗的时间，通过「e」选项可以跟踪某个操作：
+  
+  
+  
+  strace和ltrace的区别：
+
+(1) strace —— Trace system calls and signals （跟踪一个进程的系统调用或信号产生的情况）
+
+(2) ltrace —— A library call tracer （跟踪进程调用库函数的情况）
+  
+   strace和ltrace的使用方法基本相同。其中它们共同最常用的三个命令行参数是：
+
+
+-f
+
+除了跟踪当前进程外，还跟踪其子进程
+
+-o file
+
+将输出信息写到文件file中，而不是显示到标准错误输出（stderr）
+
+-p PID
+
+绑定到一个由PID对应的正在运行的进程，此参数常用来调试后台进程（守护进程）
+  
+  
+
+
