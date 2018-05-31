@@ -1,0 +1,11 @@
+问题 6.1：下面的函数将不会被编译，为什么呢？大家可以试着纠正过来。
+
+func (st *Stack) Pop() int {
+    v := 0
+    for ix := len(st) - 1; ix >= 0; ix-- {
+        if v = st[ix]; v != 0 {
+            st[ix] = 0
+            return v
+        }
+    }
+}    
