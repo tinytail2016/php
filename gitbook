@@ -1,0 +1,25 @@
+先行安装Node.js、GitBook、GitBook Editor、Git版本控制器
+
+node -v //显示v4.5.0 验证是否安装成功；
+
+npm install gitbook -g 命令行安装gitbook；
+
+npm install -g gitbook-cli 安装gitbook的命令行工具；
+
+gitbook -V //显示0.4.2 检测是否成功；
+
+gitbook init moon
+
+
+README.md 是对书籍的简单介绍
+SUMMARY.md 是书籍的目录结构
+
+* [Chapter1](chapter1/README.md)
+  * [Section1.1](chapter1/section1.1.md)
+  * [Section1.2](chapter1/section1.2.md)
+* [Chapter2](chapter2/README.md)
+
+
+gitbook serve 来编译和预览书籍
+
+http://127.0.0.1:4000 
