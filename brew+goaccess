@@ -1,0 +1,27 @@
+** mac 下安装brew命令行工具
+
+mac 系统安装 brew
+
+https://brew.sh/index_zh-cn
+
+终端执行
+/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+
+使用 Homebrew 安装 Apple 没有预装但 你需要的东西。
+brew install wget
+Homebrew 会将软件包安装到独立目录，并将其文件软链接至 /usr/local 。
+
+
+brew install goaccess
+
+注意 log-file 没有就不要打开 否则找不到文件
+
+注意 daemonize real-time-html 不要开启作为守护进程 多次执行会报错
+
+goaccess -f demo-access.log -a > view.html 2> error.log
+
+config文件单独修改---主要参数
+
+time-format %H:%M:%S
+date-format %d/%b/%Y
+log-format %h\t-\t%^\t%d:%t %^\t%^\t%^\t%^\t%^\t%^\t%m\t%^\t%U\t%H\t%^\t%T\t%s\t%^\t%b\t%R\t%u\t%^\t%^\t%^\t%^\t%^\t%^\t
